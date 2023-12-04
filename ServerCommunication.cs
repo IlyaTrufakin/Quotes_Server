@@ -150,7 +150,7 @@ namespace Quotes_Server
 
             switch (request.Trim().ToLower())
             {
-                case "get":
+                case "getquote":
                     Console.Write("Получен запрос от Клиента на ручной ввод ответа, введите ответ: ");
 
                     string strAnswer = Console.ReadLine();
