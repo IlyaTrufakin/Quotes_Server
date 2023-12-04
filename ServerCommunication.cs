@@ -11,9 +11,8 @@ namespace Quotes_Server
 {
     internal class ServerCommunication
 
-
- //   public class Server
     {
+        private Quotes quotes = new Quotes();
         IPEndPoint ipPoint;
         private Socket listenSocket;
         //private Thread consoleThread;
@@ -144,24 +143,16 @@ namespace Quotes_Server
         }
 
 
-        private static string ProcessRequest(string request)
+        private string ProcessRequest(string request)
         {
             string response = string.Empty;
 
             switch (request.Trim().ToLower())
             {
                 case "getquote":
-                    Console.Write("Получен запрос от Клиента на ручной ввод ответа, введите ответ: ");
-
-                    string strAnswer = Console.ReadLine();
-                    if (strAnswer.Length > 0)
-                    {
-                        response = strAnswer;
-                    }
-                    else
-                    {
-                        response = "Пустой ответ";
-                    }
+                    string str = quotes.GetQuote();
+                    Console.Write("Цитата: " + str);
+                    response = str;
                     break;
 
                 case "time":

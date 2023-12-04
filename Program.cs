@@ -6,11 +6,15 @@ using System.Threading.Tasks;
 
 namespace Quotes_Server
 {
-    internal class Program
+    public class Program
     {
         static void Main(string[] args)
         {
+
             ServerCommunication server = new ServerCommunication("127.0.0.1", 8005);
+
+            Console.WriteLine();
+
             server.Start();
         }
     }
