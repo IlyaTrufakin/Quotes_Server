@@ -6,12 +6,14 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using NLog;
 
 namespace Quotes_Server
 {
     internal class ServerCommunication
 
     {
+        private static readonly ILogger logger = LogManager.GetCurrentClassLogger();
         private Quotes quotes = new Quotes();
         IPEndPoint ipPoint;
         private Socket listenSocket;
@@ -33,14 +35,17 @@ namespace Quotes_Server
             catch (FormatException ex)
             {
                 Console.WriteLine("Ошибка IP-адреса: " + ex.Message);
+                logger.Info($"Ошибка IP-адреса:  {ex.Message}  /{DateTime.Now}/");
             }
             catch (ArgumentException ex)
             {
                 Console.WriteLine("Ошибка в аргументах: " + ex.Message);
+                logger.Info($"Ошибка в аргументах:  {ex.Message}  /{DateTime.Now}/");
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Произошла ошибка: " + ex.Message);
+                logger.Info($"Произошла ошибка:  {ex.Message}  /{DateTime.Now}/");
             }
         }
 
@@ -53,28 +58,34 @@ namespace Quotes_Server
                 listenSocket.Bind(ipPoint);
                 listenSocket.Listen(10);
                 Console.WriteLine("Server start listen...");
+                logger.Info($"Server start listen:  /{DateTime.Now}/");
                 //consoleThread.Start();
 
                 while (true)
                 {
                     Socket handler = listenSocket.Accept();
+
                     AddClient(handler);
-                    Console.WriteLine($"Client connected:  {connectedClients[handler]} IP({handler.RemoteEndPoint.ToString()})");
+                    Console.WriteLine($"Client connected:  {connectedClients[handler]} IP({handler.RemoteEndPoint})");
+                    logger.Info($"Client connected:  {connectedClients[handler]} IP({handler.RemoteEndPoint}) + /{DateTime.Now}/");
+                    Console.WriteLine($"\tList of connected clients: ");
                     foreach (var clients in connectedClients)
                     {
-                        Console.WriteLine($"\tList of connected clients:  {clients.Value} IP({clients.Key.RemoteEndPoint.ToString()})");
+                        Console.WriteLine($"\t- {clients.Value} IP({clients.Key.RemoteEndPoint})");
                     }
 
-
-                    Thread clientThread = new Thread(new ParameterizedThreadStart(HandleClient));
-                    clientThread.Start(handler);
-                    Console.WriteLine("Создан поток: " + clientThread.GetHashCode());
+                    ThreadPool.QueueUserWorkItem(new WaitCallback(HandleClient), handler);
+              
+                    //Thread clientThread = new Thread(new ParameterizedThreadStart(HandleClient));
+                    //clientThread.Start(handler);
+                    //Console.WriteLine("Создан поток: " + clientThread.GetHashCode());
 
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
+                logger.Info($"Произошла ошибка при запуске сервера: {ex.Message}  /{DateTime.Now}/");
             }
         }
 
@@ -91,7 +102,7 @@ namespace Quotes_Server
 
 
 
-
+        //private void HandleClient(object state)
         private void HandleClient(object obj)
         {
             Socket handler = (Socket)obj;
@@ -115,6 +126,7 @@ namespace Quotes_Server
                     if (receivedString.ToString() != "timeQuiet") // когда клиент запрашивает время в автоматическом режиме, не выводим об этом инфо в консоль
                     {
                         Console.WriteLine(DateTime.Now.ToShortTimeString() + ": " + receivedString + $"  (from {connectedClients[handler]})");
+                        logger.Info($"Сообщение {receivedString}  (получено от  {connectedClients[handler]})  /{DateTime.Now}/");
                     }
 
 
@@ -124,6 +136,7 @@ namespace Quotes_Server
                     if (response == "Closing") // отработка запроса клиента на закрытие соединения
                     {
                         Console.Write($"{connectedClients[handler]} - Closing connection...");
+                        logger.Info($"Соединение с клиентом {connectedClients[handler]} завершается: /{DateTime.Now}/");
                         break;
                     }
                 }
@@ -136,10 +149,14 @@ namespace Quotes_Server
             {
                 connectedClients.Remove(handler);
                 handler.Shutdown(SocketShutdown.Both);
+                logger.Info($"Соединение с клиентом завершено: /{DateTime.Now}/");
                 Console.WriteLine("Connection closed");
                 handler.Close();
 
             }
+
+
+
         }
 
 
@@ -151,7 +168,8 @@ namespace Quotes_Server
             {
                 case "getquote":
                     string str = quotes.GetQuote();
-                    Console.Write("Цитата: " + str);
+                    Console.WriteLine("Цитата: " + str);
+                    logger.Info($"Цитата: {str}  /{ DateTime.Now}/ ");
                     response = str;
                     break;
 
