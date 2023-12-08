@@ -15,9 +15,10 @@ namespace Quotes_Server
     {
         private static readonly ILogger logger = LogManager.GetCurrentClassLogger();
         private Quotes quotes = new Quotes();
+        private int quotesSentToClient;
         IPEndPoint ipPoint;
         private Socket listenSocket;
-        //private Thread consoleThread;
+        private readonly int maxQuotesPerClient = 5; // макс. кол-во цитат на клиента
         private Dictionary<Socket, string> connectedClients = new Dictionary<Socket, string>();
         private int clientIdCounter = 0;
         private object lockObject = new object(); // для блокировки доступа нескольких потоков к изменяемому объекту
@@ -75,7 +76,7 @@ namespace Quotes_Server
                     }
 
                     ThreadPool.QueueUserWorkItem(new WaitCallback(HandleClient), handler);
-              
+
                     //Thread clientThread = new Thread(new ParameterizedThreadStart(HandleClient));
                     //clientThread.Start(handler);
                     //Console.WriteLine("Создан поток: " + clientThread.GetHashCode());
@@ -102,11 +103,11 @@ namespace Quotes_Server
 
 
 
-        //private void HandleClient(object state)
+
         private void HandleClient(object obj)
         {
             Socket handler = (Socket)obj;
-
+            quotesSentToClient = 0;
             try
             {
 
@@ -167,10 +168,22 @@ namespace Quotes_Server
             switch (request.Trim().ToLower())
             {
                 case "getquote":
+
                     string str = quotes.GetQuote();
-                    Console.WriteLine("Цитата: " + str);
-                    logger.Info($"Цитата: {str}  /{ DateTime.Now}/ ");
-                    response = str;
+                    if (quotesSentToClient > maxQuotesPerClient)
+                    {
+                        Console.WriteLine($"Кол-во запрашиваемых цитат ({quotesSentToClient}), для клиента, превышает  заданный уровень - {maxQuotesPerClient}. В получении цитат отказано.");
+                        logger.Info($"Кол-во запрашиваемых цитат ({quotesSentToClient}), для клиента, превышает  заданный уровень - {maxQuotesPerClient}. /{DateTime.Now}/ ");
+                        response = ($"Кол-во запрашиваемых цитат ({quotesSentToClient}), для клиента, превышает  заданный уровень - {maxQuotesPerClient}. /{DateTime.Now}/ ");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Цитата: " + str);
+                        logger.Info($"Цитата: {str}  /{DateTime.Now}/ ");
+                        response = str;
+                        quotesSentToClient++; // счетчик инкрементальный числа цитат.
+                    }
+
                     break;
 
                 case "time":
@@ -183,6 +196,11 @@ namespace Quotes_Server
 
                 case "info":
                     response = Environment.OSVersion.ToString();
+                    break;
+
+                case "get":
+                    Console.WriteLine("Запрошен ручной ответ, напишите что-нибудь клиенту: ");
+                    response = Console.ReadLine();
                     break;
 
                 case "bye":
