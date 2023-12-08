@@ -12,6 +12,7 @@ namespace Quotes_Server
     {
         private static readonly NLog.Logger logger = NLog.LogManager.GetCurrentClassLogger();
 
+
         static void Main(string[] args)
         {
             try

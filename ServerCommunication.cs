@@ -16,6 +16,9 @@ namespace Quotes_Server
         private static readonly ILogger logger = LogManager.GetCurrentClassLogger();
         private Quotes quotes = new Quotes();
         private int quotesSentToClient;
+        private readonly int maxClients = 3; // макс. кол-во одновременных клиентов на соккете
+        private string Password = "trufakin";
+        private string Login = "ilya";
         IPEndPoint ipPoint;
         private Socket listenSocket;
         private readonly int maxQuotesPerClient = 5; // макс. кол-во цитат на клиента
@@ -60,13 +63,13 @@ namespace Quotes_Server
                 listenSocket.Listen(10);
                 Console.WriteLine("Server start listen...");
                 logger.Info($"Server start listen:  /{DateTime.Now}/");
-                //consoleThread.Start();
+
 
                 while (true)
                 {
                     Socket handler = listenSocket.Accept();
-
                     AddClient(handler);
+
                     Console.WriteLine($"Client connected:  {connectedClients[handler]} IP({handler.RemoteEndPoint})");
                     logger.Info($"Client connected:  {connectedClients[handler]} IP({handler.RemoteEndPoint}) + /{DateTime.Now}/");
                     Console.WriteLine($"\tList of connected clients: ");
@@ -76,9 +79,6 @@ namespace Quotes_Server
                     }
 
                     ThreadPool.QueueUserWorkItem(new WaitCallback(HandleClient), handler);
-
-                    //Thread clientThread = new Thread(new ParameterizedThreadStart(HandleClient));
-                    //clientThread.Start(handler);
                     //Console.WriteLine("Создан поток: " + clientThread.GetHashCode());
 
                 }
@@ -89,6 +89,8 @@ namespace Quotes_Server
                 logger.Info($"Произошла ошибка при запуске сервера: {ex.Message}  /{DateTime.Now}/");
             }
         }
+
+
 
         // Добавление клиента и его идентификатора в словарь connectedClients
         private void AddClient(Socket clientSocket)
@@ -123,18 +125,36 @@ namespace Quotes_Server
                         receivedString.Append(Encoding.Unicode.GetString(data, 0, receivedBytes));
                     } while (handler.Available > 0);
 
+                    string[] StringParts = receivedString.ToString().Split(':');
 
-                    if (receivedString.ToString() != "timeQuiet") // когда клиент запрашивает время в автоматическом режиме, не выводим об этом инфо в консоль
+                    if (StringParts[0] != "timeQuiet") // когда клиент запрашивает время в автоматическом режиме, не выводим об этом инфо в консоль
                     {
-                        Console.WriteLine(DateTime.Now.ToShortTimeString() + ": " + receivedString + $"  (from {connectedClients[handler]})");
-                        logger.Info($"Сообщение {receivedString}  (получено от  {connectedClients[handler]})  /{DateTime.Now}/");
+                        Console.WriteLine(DateTime.Now.ToShortTimeString() + ": " + StringParts[0] + $"  (from {connectedClients[handler]})");
+                        logger.Info($"Сообщение {StringParts[0]}  (получено от  {connectedClients[handler]})  /{DateTime.Now}/");
                     }
 
 
-                    string response = ProcessRequest(receivedString.ToString()); // обработка строки запроса от клиента
+                    if (StringParts[0] == "login") // когда клиент подключается и присылает логин и пароль
+                    {
+                        Console.WriteLine(DateTime.Now.ToShortTimeString() + ": " + StringParts[0] + $"  (from {connectedClients[handler]})" + $"Идентификация клиента: {StringParts[0]} : {StringParts[1]} : {StringParts[2]}");
+                        logger.Info($"Сообщение {StringParts[0]}  (получено от  {connectedClients[handler]})  + Идентификация клиента: {StringParts[0]} : {StringParts[1]} : {StringParts[2]} /{DateTime.Now}/");
+
+                        if (connectedClients.Count > maxClients)
+                        {
+                            StringParts[0] = "maxсonnectionlimit";
+                        }
+
+                        if (!(StringParts[1] == "ilya" && StringParts[2] == "trufakin"))
+                        {
+                            StringParts[0] = "reject";
+                        }
+                    }
+
+                    string response = ProcessRequest(StringParts[0]); // обработка строки запроса от клиента
+
                     handler.Send(Encoding.Unicode.GetBytes(response)); // отправка ответа клиенту
 
-                    if (response == "Closing") // отработка запроса клиента на закрытие соединения
+                    if (response == "Closing" || StringParts[0] == "reject" || StringParts[0] == "maxсonnectionlimit") // отработка запроса клиента на закрытие соединения
                     {
                         Console.Write($"{connectedClients[handler]} - Closing connection...");
                         logger.Info($"Соединение с клиентом {connectedClients[handler]} завершается: /{DateTime.Now}/");
@@ -189,6 +209,19 @@ namespace Quotes_Server
                 case "time":
                     response = DateTime.Now.ToString();
                     break;
+
+                case "login":
+                    response = ($"Идентификация клиента осуществлена: {request}");
+                    break;
+
+                case "reject":
+                    response = ($"Идентификация клиента не осуществлена.");
+                    break;
+
+               case "maxсonnectionlimit":
+                    response = ($"Сервер перегружен. Попробуйте присоединиться позже.");
+                    break;
+
 
                 case "timequiet":
                     response = DateTime.Now.ToString();
